@@ -14,8 +14,8 @@ namespace ObjectModel
 	protected:
         std::string _name;
 		uint8_t _wrapper;
-		uint16_t _nameLength;
-		uint8_t _size;
+		uint8_t _nameLength;
+		uint16_t _size;
 	    SerializationContext context;
 
         Root()
@@ -24,9 +24,9 @@ namespace ObjectModel
 			_wrapper(0),
 			_nameLength(0),
 			_size(0),
-			context() {}
+			context(0) {}
 
-		Root(const std::string& name, uint8_t wrapper, uint8_t targetSize)
+		Root(const std::string& name, uint8_t wrapper, uint16_t targetSize)
 			:
 			_name(name),
 			_wrapper(wrapper),
@@ -38,7 +38,19 @@ namespace ObjectModel
 		inline const std::string& getName() const { return _name; }
 		inline uint32_t getSize() const { return _size; }
 
-		virtual void pack(SerializationContext&) {};
+		virtual void pack(SerializationContext&) const {};
 		virtual ~Root() = default;
+
+		template<class T>
+        friend T root_cast(const Root&);
 	};
+
+    template<class T>
+	T root_cast(const Root& p)
+	{
+	    T v{};
+        SerializationView view(p.context);
+        view.template decode<T>(v);
+        return v;
+	}
 }

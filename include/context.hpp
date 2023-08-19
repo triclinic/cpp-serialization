@@ -1,6 +1,49 @@
 #pragma once
 #include <type_traits>
+#include <vector>
+#include <string>
+#include <stdint.h>
 
+template<typename T, typename _ = void>
+struct is_container : std::false_type {};
+
+//template<typename... Ts>
+//struct is_container_helper {};
+
+//template<typename T>
+//struct is_container<
+//        T,
+//        std::conditional_t<
+//            false,
+//            is_container_helper<
+//                typename T::value_type,
+//                typename T::size_type,
+//                typename T::allocator_type,
+//                typename T::iterator,
+//                typename T::const_iterator,
+//                decltype(std::declval<T>().size()),
+//                decltype(std::declval<T>().begin()),
+//                decltype(std::declval<T>().end()),
+//                decltype(std::declval<T>().cbegin()),
+//                decltype(std::declval<T>().cend())
+//                >,
+//            void
+//            >
+//        > : public std::true_type {};
+
+template<typename T>
+struct is_container<
+        T,
+        std::void_t<
+            //typename std::enable_if<std::is_arithmetic<typename T::value_type>::value>::type,
+            typename T::value_type,
+            decltype(std::declval<T>().size()),
+            decltype(std::declval<T>().operator[](std::declval<size_t>()))
+            >
+        > : public std::true_type {};
+
+
+#include "meta.hpp"
 
 namespace ObjectModel
 {
@@ -12,8 +55,11 @@ namespace ObjectModel
         SerializationContext(uint8_t size = 0): data(){ data.reserve(size); }
 
         template<class T>
-        typename std::enable_if<std::is_integral<T>::value && !std::is_floating_point<T>::value, SerializationContext&>::type
-        encode(T value)
+        typename std::enable_if<
+            std::is_integral<T>::value
+            && !std::is_same<T, bool>::value,
+            SerializationContext&
+        >::type encode(T value)
         {
             for (unsigned i = 0; i < sizeof (T); i++)
             {
@@ -22,9 +68,23 @@ namespace ObjectModel
             return *this;
         }
 
+
         template<class T>
-        typename std::enable_if<std::is_floating_point<T>::value, SerializationContext&>::type
-        encode(T value)
+        typename std::enable_if<
+            std::is_same<T, bool>::value,
+            SerializationContext&
+        >::type encode(T value)
+        {
+            data.push_back((value) ? 0x7F : 0x00);
+            return *this;
+        }
+
+
+        template<class T>
+        typename std::enable_if<
+            std::is_floating_point<T>::value,
+            SerializationContext&
+        >::type encode(T value)
         {
             typedef typename std::conditional<std::is_same<T, float>::value, int32_t, int64_t>::type intfloat_t;
             intfloat_t result = *reinterpret_cast<intfloat_t*>(&value);
@@ -32,40 +92,44 @@ namespace ObjectModel
             return *this;
         }
 
-        SerializationContext& encode(const std::string& _string)
+
+        // Container
+        template<class T>
+        typename std::enable_if<
+            is_container<T>::value,
+            SerializationContext&
+        >::type encode(T value)
         {
-            for (unsigned i = 0; i < _string.size(); i++)
+            typedef typename T::value_type target_t;
+            for (unsigned i = 0; i < value.size(); i++)
             {
-                uint8_t ch = static_cast<uint8_t>(_string.c_str()[i]);
-                this->encode<uint8_t>(ch);
+                encode<target_t>(value[i]);
             }
             return *this;
         }
 
-        inline SerializationContext& encode(const SerializationContext& other)
-        {
-            data.insert(data.end(), other.data.cbegin(), other.data.cend());
-            return *this;
-        }
+        SerializationContext& encode(const std::string& _string);
 
-        inline const std::vector<uint8_t>& getData() const
-        {
-            return data;
-        }
+        SerializationContext& encode(const SerializationContext& other);
+
+        inline const std::vector<uint8_t>& getData() const { return data; }
+
     };
 
     class Root;
 
     class SerializationView{
         const std::vector<uint8_t>& data;
-        const Root& result;
         typename std::vector<uint8_t>::const_iterator position;
     public:
-        SerializationView(const SerializationContext& context, const Root& result): data(context.data), result(result), position(context.data.cbegin()) {}
+        SerializationView(const SerializationContext& context): data(context.data), position(context.data.cbegin()) {}
+
 
         template<class T>
-        typename std::enable_if<std::is_integral<T>::value && !std::is_floating_point<T>::value, SerializationView&>::type
-        decode(T& value)
+        typename std::enable_if<
+            std::is_integral<T>::value,
+            SerializationView&
+        >::type decode(T& value)
         {
             for (unsigned i = 0; i < sizeof (T); i++)
             {
@@ -75,40 +139,52 @@ namespace ObjectModel
         }
 
         template<class T>
-        typename std::enable_if<std::is_floating_point<T>::value, SerializationView&>::type
-        decode(T& value)
+        typename std::enable_if<
+            std::is_floating_point<T>::value,
+            SerializationView&
+        >::type decode(T& value)
         {
-            typedef typename std::conditional<std::is_same<T, float>::value, int32_t, int64_t>::type intfloat_t;
-            intfloat_t result = *reinterpret_cast<intfloat_t*>(position);
-            value = decode<intfloat_t>(result);
-            position += sizeof(intfloat_t);
+            typedef typename std::conditional<
+                std::is_same<T, float>::value,
+                int32_t,
+                int64_t
+                    >::type intfloat_t;
+
+            uint8_t dat[sizeof(intfloat_t)];
+
+            for(unsigned i = 0; i < sizeof(intfloat_t); ++i)
+            {
+                dat[sizeof(intfloat_t) - i - 1] = *position++;
+            }
+            value = *reinterpret_cast<T*>(dat);
+            return *this;
+        }
+
+        // Container
+        template<class T>
+        typename std::enable_if<
+            is_container<T>::value,
+            SerializationView&
+        >::type decode(T& value, uint16_t itemsCount)
+        {
+            typedef typename T::value_type target_t;
+
+            for (unsigned i = 0; i < itemsCount; i++)
+            {
+                target_t temp{};
+                decode<target_t>(temp);
+                value.push_back(temp);
+            }
             (void)value;
             return *this;
         }
 
-        SerializationView& decode(std::string& _string)
-        {
-//            for (unsigned i = 0; i < result.getName().size(); i++)
-//            {
-//                _string.push_back((char)decode<uint8_t>(position));
-//
-//                //uint8_t ch = static_cast<uint8_t>(_string.c_str()[i]);
-//                //this->encode<uint8_t>(ch);
-//            }
-            (void)_string;
-            return *this;
-        }
+        SerializationView& decode(std::string& _string, uint16_t size);
 
-        inline SerializationView& decode(SerializationContext& other)
-        {
-            //data.insert(data.end(), other.data.cbegin(), other.data.cend());
-            (void)other;
-            return *this;
-        }
+        SerializationView& decode(SerializationContext& other, uint8_t type);
+        SerializationView& decode(SerializationContext& other, uint8_t type, uint16_t count);
 
-        inline const std::vector<uint8_t>& getData() const
-        {
-            return data;
-        }
+        inline const std::vector<uint8_t>& getData() const { return data; }
+
     };
 }

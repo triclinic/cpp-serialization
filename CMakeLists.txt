@@ -14,10 +14,13 @@ set(TEST_SOURCES
 set(COMMON_SOURCES 
 	include/serialization.hpp
 	include/meta.hpp
+	include/array.hpp
+	src/array.cpp
 	include/primitive.hpp
 	src/primitive.cpp
+	include/context.hpp
+	src/context.cpp
 	include/root.hpp
-	src/root.cpp
 )
 
 add_subdirectory(
