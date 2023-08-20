@@ -4,45 +4,6 @@
 #include <string>
 #include <stdint.h>
 
-template<typename T, typename _ = void>
-struct is_container : std::false_type {};
-
-//template<typename... Ts>
-//struct is_container_helper {};
-
-//template<typename T>
-//struct is_container<
-//        T,
-//        std::conditional_t<
-//            false,
-//            is_container_helper<
-//                typename T::value_type,
-//                typename T::size_type,
-//                typename T::allocator_type,
-//                typename T::iterator,
-//                typename T::const_iterator,
-//                decltype(std::declval<T>().size()),
-//                decltype(std::declval<T>().begin()),
-//                decltype(std::declval<T>().end()),
-//                decltype(std::declval<T>().cbegin()),
-//                decltype(std::declval<T>().cend())
-//                >,
-//            void
-//            >
-//        > : public std::true_type {};
-
-template<typename T>
-struct is_container<
-        T,
-        std::void_t<
-            //typename std::enable_if<std::is_arithmetic<typename T::value_type>::value>::type,
-            typename T::value_type,
-            decltype(std::declval<T>().size()),
-            decltype(std::declval<T>().operator[](std::declval<size_t>()))
-            >
-        > : public std::true_type {};
-
-
 #include "meta.hpp"
 
 namespace ObjectModel
@@ -96,7 +57,7 @@ namespace ObjectModel
         // Container
         template<class T>
         typename std::enable_if<
-            is_container<T>::value,
+            Util::is_container<T>::value,
             SerializationContext&
         >::type encode(T value)
         {
@@ -150,20 +111,16 @@ namespace ObjectModel
                 int64_t
                     >::type intfloat_t;
 
-            uint8_t dat[sizeof(intfloat_t)];
-
-            for(unsigned i = 0; i < sizeof(intfloat_t); ++i)
-            {
-                dat[sizeof(intfloat_t) - i - 1] = *position++;
-            }
-            value = *reinterpret_cast<T*>(dat);
+            intfloat_t result = 0;
+            decode<intfloat_t>(result);
+            value = *reinterpret_cast<T*>(&result);
             return *this;
         }
 
         // Container
         template<class T>
         typename std::enable_if<
-            is_container<T>::value,
+            Util::is_container<T>::value,
             SerializationView&
         >::type decode(T& value, uint16_t itemsCount)
         {

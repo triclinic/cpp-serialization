@@ -17,9 +17,9 @@ namespace ObjectModel
 	    Array(void);
 	public:
 		template<typename T>
-		static std::unique_ptr<Array> create(const std::string& name, Type type, T value)
+		static std::unique_ptr<Array> create(const std::string& name, T value)
 		{
-			std::unique_ptr<Array> p(new Array(name, (uint8_t)type, (uint8_t)sizeof(typename T::value_type), (uint16_t)value.size() ) );
+			std::unique_ptr<Array> p(new Array(name, Util::selector<typename T::value_type>::value, (uint8_t)sizeof(typename T::value_type), (uint16_t)value.size() ) );
 			p->context.template encode<T>(value);
 
 			return p;

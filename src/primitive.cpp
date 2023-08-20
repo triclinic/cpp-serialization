@@ -27,9 +27,11 @@ namespace ObjectModel
         SerializationView view(transmitter);
         view
             .decode(result->_wrapper)
+            //TODO: make assert on "result->_wrapper"
             .decode(result->_nameLength)
             .decode(result->_name, result->_nameLength)
             .decode(result->_type)
+            //TODO: make assert on "result->_type"
             .decode(result->context, result->_type)
             .decode(result->_size)
         ;

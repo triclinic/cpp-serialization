@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-
+#include <type_traits>
 
 
 namespace ObjectModel
@@ -44,5 +44,71 @@ namespace ObjectModel
 	}
 
 
+namespace Util{
+
+    template<typename T, typename _ = void>
+    struct selector {
+        static const uint8_t value = (sizeof(T) <= 2u) ? (
+                                                            (uint8_t)sizeof(T)
+                                                         ) : (
+                                                            (sizeof(T) == 4u) ? (uint8_t)Type::I32 : (uint8_t)Type::I64
+                                                         );
+    };
+
+    template<typename T>
+    struct selector<
+            T,
+            std::void_t<
+                typename std::enable_if<std::is_floating_point<T>::value || std::is_same<T, bool>::value>::type
+            >
+            >
+    {
+        static const uint8_t value = (sizeof(T) < 2u) ? (
+                                                            (uint8_t)Type::BOOL
+                                                         ) : (
+                                                            (sizeof(T) == 4u) ? (uint8_t)Type::FLOAT : (uint8_t)Type::DOUBLE
+                                                         );
+    };
+
+    template<typename T, typename _ = void>
+    struct is_container : std::false_type {};
+
+    //template<typename... Ts>
+    //struct is_container_helper {};
+
+    //template<typename T>
+    //struct is_container<
+    //        T,
+    //        std::conditional_t<
+    //            false,
+    //            is_container_helper<
+    //                typename T::value_type,
+    //                typename T::size_type,
+    //                typename T::allocator_type,
+    //                typename T::iterator,
+    //                typename T::const_iterator,
+    //                decltype(std::declval<T>().size()),
+    //                decltype(std::declval<T>().begin()),
+    //                decltype(std::declval<T>().end()),
+    //                decltype(std::declval<T>().cbegin()),
+    //                decltype(std::declval<T>().cend())
+    //                >,
+    //            void
+    //            >
+    //        > : public std::true_type {};
+
+    template<typename T>
+    struct is_container<
+            T,
+            std::void_t<
+                typename std::enable_if<std::is_arithmetic<typename T::value_type>::value>::type,
+                typename T::value_type,
+                decltype(std::declval<T>().size()),
+                decltype(std::declval<T>().push_back(std::declval<typename T::value_type>())),
+                decltype(std::declval<T>().operator[](std::declval<size_t>()))
+                >
+            > : public std::true_type {};
+
+}
 
 }

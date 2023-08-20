@@ -10,7 +10,7 @@
             for (unsigned i = 0; i < _string.size(); i++)
             {
                 uint8_t ch = static_cast<uint8_t>(_string.c_str()[i]);
-                this->encode<uint8_t>(ch ^ 0x5A);
+                this->encode<uint8_t>(ch);
             }
             return *this;
         }
@@ -28,7 +28,8 @@
             {
                 uint8_t ch = *position;
                 decode<uint8_t>(ch);
-                _string.push_back(ch ^ 0x5A);
+                //TODO: make assert on "ch"
+                _string.push_back(ch);
             }
             return *this;
         }

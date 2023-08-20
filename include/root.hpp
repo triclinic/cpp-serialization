@@ -38,7 +38,7 @@ namespace ObjectModel
 		inline const std::string& getName() const { return _name; }
 		inline uint32_t getSize() const { return _size; }
 
-		virtual void pack(SerializationContext&) const {};
+		virtual void pack(SerializationContext&) const = 0;
 		virtual ~Root() = default;
 
 		template<class T>

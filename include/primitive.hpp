@@ -16,9 +16,9 @@ namespace ObjectModel
 	    Primitive(void);
 	public:
 		template<typename T>
-		static std::unique_ptr<Primitive> create(const std::string& name, Type type, T value)
+		static std::unique_ptr<Primitive> create(const std::string& name, T value)
 		{
-			std::unique_ptr<Primitive> p(new Primitive(name, (uint8_t)type, (uint8_t)sizeof(T)));
+			std::unique_ptr<Primitive> p(new Primitive(name, Util::selector<T>::value, (uint8_t)sizeof(T)));
 			p->context.template encode<T>(value);
 
 			return p;
